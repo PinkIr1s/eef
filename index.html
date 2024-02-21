@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            .box {
+                width: 200px;
+                height: 200px;
+                border: 1px solid black;
+                background-image: url("eef.jpg");
+                background-size: cover;
+                animation: rotate 3s infinite linear;
+                position: absolute;
+            }
+
+            @keyframes rotate {
+                from {
+                    transform: rotate(0deg);
+                }
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            body {
+                overflow: hidden;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box"></div>
+        <div class="box"></div>
+        <div class="box"></div>
+        <div class="box"></div>
+        <div class="box"></div>
+    </body>
+    <script>
+        var boxes = document.getElementsByClassName("box");
+        var boxPos = [
+            {x:0,y:0,vx:5,vy:5},
+            {x:150,y:25,vx:5,vy:5},
+            {x:310,y:650,vx:5,vy:5},
+            {x:340,y:330,vx:5,vy:5},
+            {x:760,y:480,vx:5,vy:5}
+        ];
+
+        for (var i=0; i<boxes.length; i++) {
+            boxes[i].style.animation = `rotate 3s infinite ${Math.round(Math.random()*5000)}ms linear`;
+        }
+
+        loop();
+        function loop() {
+            requestAnimationFrame(loop);
+            for (let i=0; i<boxes.length; i++) {
+                var box = Object.create(boxPos[i]);
+                boxPos[i].x += boxPos[i].vx;
+                boxPos[i].y += boxPos[i].vy;
+                console.log(boxPos[i].vx);
+                if (box.x < 0) {
+                    boxPos[i].x = 0;
+                    boxPos[i].vx *= -1;
+                } else if (box.x + 200 > window.innerWidth) {
+                    boxPos[i].x = window.innerWidth - 200;
+                    boxPos[i].vx *= -1;
+                }
+                if (box.y < 0) {
+                    boxPos[i].y = 0;
+                    boxPos[i].vy *= -1;
+                } else if (box.y + 200 > window.innerHeight) {
+                    boxPos[i].y = window.innerHeight - 200;
+                    boxPos[i].vy *= -1;
+                }
+                boxes[i].style.marginTop = box.y + 'px';
+                boxes[i].style.marginLeft = box.x + 'px';
+            }
+        }
+    </script>
+</html>
