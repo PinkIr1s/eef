@@ -2,76 +2,277 @@
 <html>
     <head>
         <style>
-            .box {
-                width: 200px;
-                height: 200px;
-                border: 1px solid black;
-                background-image: url("eef.jpg");
-                background-size: cover;
-                animation: rotate 3s infinite linear;
-                position: absolute;
-            }
-
-            @keyframes rotate {
-                from {
-                    transform: rotate(0deg);
-                }
-                to {
-                    transform: rotate(360deg);
-                }
-            }
-
             body {
+                height: 100vh;
+                margin: 0;
                 overflow: hidden;
+            }
+
+            #canvas {
+                border: 1px solid black;
             }
         </style>
     </head>
     <body>
-        <div class="box"></div>
-        <div class="box"></div>
-        <div class="box"></div>
-        <div class="box"></div>
-        <div class="box"></div>
+        <div style="display: none;">
+            <img id="source" src="eef.jpg" width="4032" height="3024">
+        </div>
+        <canvas id="canvas"></canvas>
     </body>
     <script>
-        var boxes = document.getElementsByClassName("box");
-        var boxPos = [
-            {x:0,y:0,vx:5,vy:5},
-            {x:150,y:25,vx:5,vy:5},
-            {x:310,y:650,vx:5,vy:5},
-            {x:340,y:330,vx:5,vy:5},
-            {x:760,y:480,vx:5,vy:5}
-        ];
+        var canvas = document.getElementById("canvas");
+        var ctx = canvas.getContext("2d");
+        canvas.setAttribute("width", window.innerWidth);
+        canvas.setAttribute("height", window.innerHeight);
+        const image = document.getElementById("source");
+        var canDrawImage = false;
+        image.addEventListener("load", (event) => {
+            canDrawImage = true;
+        });
 
-        for (var i=0; i<boxes.length; i++) {
-            boxes[i].style.animation = `rotate 3s infinite ${Math.round(Math.random()*5000)}ms linear`;
+
+        window.addEventListener("resize", (event) => {            
+            canvas.setAttribute("width", window.innerWidth);
+            canvas.setAttribute("height", window.innerHeight);
+        });
+
+        document.addEventListener("mousemove", (event) => {
+            mouseVect = [event.clientX - mousePos.x, event.clientY - mousePos.y];
+            mousePos = {x:event.clientX,y:event.clientY};
+        });
+
+        var mousePos = {x:0,y:0};
+        var mouseVect = [];
+        const airRes = 0.99;
+
+        var boxes = [
+            {x: 1000, y: 50, size: 100, vy: 0, vx: 0, grounded: false, mouseCollide: false},
+            {x: 500, y: 200, size: 100, vy: 0, vx: 0, grounded: false, mouseCollide: false},
+            {x: 550, y: 200, size: 100, vy: 0, vx: 0, grounded: false, mouseCollide: false},
+            {x: 600, y: 200, size: 100, vy: 0, vx: 0, grounded: false, mouseCollide: false},
+            {x: 650, y: 200, size: 100, vy: 0, vx: 0, grounded: false, mouseCollide: false},
+            {x: 700, y: 200, size: 100, vy: 0, vx: 0, grounded: false, mouseCollide: false},
+            {x: 750, y: 200, size: 100, vy: 0, vx: 0, grounded: false, mouseCollide: false},
+            {x: 800, y: 200, size: 100, vy: 0, vx: 0, grounded: false, mouseCollide: false}
+        ];
+        var gravity = 0.8;
+
+        var mouseGrabOffset = [0,0];
+        var grabbing = false;
+        var grabIndex;
+
+        const groundFriction = 0.8;
+        const bounceMultipler = -0.8;
+
+        frame();
+        function frame() {
+            requestAnimationFrame(frame);
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            // if (mouseCollide) {
+            //     ctx.strokeStyle = "green";
+            // } else {
+            //     ctx.strokeStyle = "black";
+            // }
+            for (let i = 0; i < boxes.length; i++) {
+                if (i==0) {
+                    ctx.strokeStyle = "red";
+                } else {
+                    ctx.strokeStyle = "blue";
+                }
+                if (!canDrawImage) {
+                    ctx.strokeRect(boxes[i].x, boxes[i].y, boxes[i].size, boxes[i].size);
+                } else {
+                    ctx.drawImage(image, 0, 0, image.width, image.height, boxes[i].x, boxes[i].y, boxes[i].size, boxes[i].size);
+                }
+            }
+                    // Start of physics.
+            for (let i = 0; i < boxes.length; i++) {
+                let box = boxes[i];
+                box.grounded = false;
+                if (!grabbing || (grabbing && grabIndex != i)) {
+                    applyGravity(i);
+                }
+                checkMouse(i);
+                if (grabbing && grabIndex == i) {
+                    moveBoxMouse(i);
+                }
+                box.x += box.vx;
+                box.y += box.vy;
+                collide(i);
+                if (box.grounded) {
+                    box.vx *= groundFriction;
+                } else {                
+                    box.vx *= airRes;
+                }
+                box.vy *= airRes;
+            }
         }
 
-        loop();
-        function loop() {
-            requestAnimationFrame(loop);
-            for (let i=0; i<boxes.length; i++) {
-                var box = Object.create(boxPos[i]);
-                boxPos[i].x += boxPos[i].vx;
-                boxPos[i].y += boxPos[i].vy;
-                console.log(boxPos[i].vx);
-                if (box.x < 0) {
-                    boxPos[i].x = 0;
-                    boxPos[i].vx *= -1;
-                } else if (box.x + 200 > window.innerWidth) {
-                    boxPos[i].x = window.innerWidth - 200;
-                    boxPos[i].vx *= -1;
+        function moveBoxMouse(index) {
+            let box = boxes[index];
+            box.x = mousePos.x - mouseGrabOffset[0];
+            box.y = mousePos.y - mouseGrabOffset[1];
+        }
+
+        document.addEventListener("mousedown", (event) => {
+            for (let i = 0; i < boxes.length; i++) {
+                let box = boxes[i];
+                if (box.mouseCollide) {
+                    mouseGrabOffset = [mousePos.x - box.x, mousePos.y - box.y];
+                    grabbing = true;
+                    grabIndex = i;
+                    box.vx = 0;
+                    box.vy = 0;
                 }
-                if (box.y < 0) {
-                    boxPos[i].y = 0;
-                    boxPos[i].vy *= -1;
-                } else if (box.y + 200 > window.innerHeight) {
-                    boxPos[i].y = window.innerHeight - 200;
-                    boxPos[i].vy *= -1;
-                }
-                boxes[i].style.marginTop = box.y + 'px';
-                boxes[i].style.marginLeft = box.x + 'px';
             }
+        });
+
+        document.addEventListener("mouseup", (event) => {
+            if (grabbing) {
+                grabbing = false;
+                boxes[grabIndex].vx += mouseVect[0];
+                boxes[grabIndex].vy += mouseVect[1];
+            }
+        });
+
+        function checkMouse(index) {
+            let box = boxes[index];
+            if (box.x < mousePos.x && box.x + box.size > mousePos.x) {
+                if (box.y < mousePos.y && box.y + box.size > mousePos.y) {
+                    box.mouseCollide = true;
+                } else {
+                    box.mouseCollide = false;
+                }
+            } else {
+                box.mouseCollide = false;
+            }
+        }
+
+        function collide(index) {
+            let box = boxes[index];
+            if (box.x < 0) {
+                box.x = 0;
+                box.vx *= bounceMultipler;
+            } else if (box.x + box.size > ctx.canvas.width) {
+                box.x = ctx.canvas.width - box.size;
+                box.vx *= bounceMultipler;
+            }
+            if (box.y < 0) {
+                box.y = 0;
+                box.vy *= bounceMultipler;
+            } else if (box.y + box.size > ctx.canvas.height) {
+                box.y = ctx.canvas.height - box.size;
+                box.vy *= bounceMultipler;
+                box.grounded = true;
+            }
+
+            for (let i=0; i<boxes.length; i++) {
+                if (i == boxes.indexOf(box)) {
+                    continue;
+                }
+                let boxTwo = boxes[i];
+                if (box.x > boxTwo.x) {
+                    if (boxTwo.x + boxTwo.size > box.x) {
+                        if (box.y > boxTwo.y) {
+                            if (boxTwo.y + boxTwo.size > box.y) {
+                                // Collision between boxes has occurred. Collision resolution:
+                                var boxTwoPos = [
+                                    boxTwo.x + boxTwo.size / 2,
+                                    boxTwo.y + boxTwo.size / 2
+                                ];
+                                var boxPos = [
+                                    box.x + box.size / 2,
+                                    box.y + box.size / 2
+                                ];
+                                if (Math.abs(boxTwoPos[0] - boxPos[0]) > Math.abs(boxTwoPos[1] - boxPos[1])) {
+                                    box.x -= box.vx;
+                                    boxTwo.vx *= bounceMultipler;
+                                    box.vx *= bounceMultipler;
+                                } else {
+                                    box.y -= box.vy;
+                                    boxTwo.vy *= bounceMultipler;
+                                    box.vy *= bounceMultipler;
+                                    box.grounded = true;
+                                }
+                            }
+                        } else {
+                            if (box.y + box.size > boxTwo.y) {
+                                // Collision between boxes has occurred. Collision resolution:
+                                var boxTwoPos = [
+                                    boxTwo.x + boxTwo.size / 2,
+                                    boxTwo.y + boxTwo.size / 2
+                                ];
+                                var boxPos = [
+                                    box.x + box.size / 2,
+                                    box.y + box.size / 2
+                                ];
+                                if (Math.abs(boxTwoPos[0] - boxPos[0]) > Math.abs(boxTwoPos[1] - boxPos[1])) {
+                                    box.x -= box.vx;
+                                    boxTwo.vx *= bounceMultipler;
+                                    box.vx *= bounceMultipler;
+                                } else {
+                                    box.y -= box.vy;
+                                    boxTwo.vy *= bounceMultipler;
+                                    box.vy *= bounceMultipler;
+                                    box.grounded = true;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    if (box.x + box.size > boxTwo.x) {
+                        if (box.y > boxTwo.y) {
+                            if (boxTwo.y + boxTwo.size > box.y) {
+                                // Collision between boxes has occurred. Collision resolution:
+                                var boxTwoPos = [
+                                    boxTwo.x + boxTwo.size / 2,
+                                    boxTwo.y + boxTwo.size / 2
+                                ];
+                                var boxPos = [
+                                    box.x + box.size / 2,
+                                    box.y + box.size / 2
+                                ];
+                                if (Math.abs(boxTwoPos[0] - boxPos[0]) > Math.abs(boxTwoPos[1] - boxPos[1])) {
+                                    box.x -= box.vx;
+                                    boxTwo.vx *= bounceMultipler;
+                                    box.vx *= bounceMultipler;
+                                } else {
+                                    box.y -= box.vy;
+                                    boxTwo.vy *= bounceMultipler;
+                                    box.vy *= bounceMultipler;
+                                    box.grounded = true;
+                                }
+                            }
+                        } else {
+                            if (box.y + box.size > boxTwo.y) {
+                                // Collision between boxes has occurred. Collision resolution:
+                                var boxTwoPos = [
+                                    boxTwo.x + boxTwo.size / 2,
+                                    boxTwo.y + boxTwo.size / 2
+                                ];
+                                var boxPos = [
+                                    box.x + box.size / 2,
+                                    box.y + box.size / 2
+                                ];
+                                if (Math.abs(boxTwoPos[0] - boxPos[0]) > Math.abs(boxTwoPos[1] - boxPos[1])) {
+                                    box.x -= box.vx;
+                                    boxTwo.vx *= bounceMultipler;
+                                    box.vx *= bounceMultipler;
+                                } else {
+                                    box.y -= box.vy;
+                                    boxTwo.vy *= bounceMultipler;
+                                    box.vy *= bounceMultipler;
+                                    box.grounded = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function applyGravity(index) {
+            boxes[index].vy += gravity;
         }
     </script>
 </html>
